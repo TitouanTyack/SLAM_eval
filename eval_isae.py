@@ -2,7 +2,7 @@ import argparse
 
 from isae_odometry import IsaeEvalOdom
 
-parser = argparse.ArgumentParser(description='EUROC evaluation')
+parser = argparse.ArgumentParser(description='ISAE evaluation')
 parser.add_argument('--result', type=str, required=True,
                     help="Result directory")
 parser.add_argument('--align', type=str, 

@@ -149,6 +149,45 @@ class EvalOdom():
         dz = pose_error[2, 3]
         trans_error = np.sqrt(dx**2+dy**2+dz**2)
         return trans_error
+
+    def scale_error(self, pose_1, pose_2):
+        """Compute scale error
+        Args:
+            pose_1 (4x4 array): pose_1
+            pose_2 (4x4 array): pose_2
+        Returns:
+            trans_error (float): translation error
+        """
+        x_1 = pose_1[0, 3]
+        y_1 = pose_1[1, 3]
+        z_1 = pose_1[2, 3]
+        scale_1 = np.sqrt(x_1**2+y_1**2+z_1**2)
+
+        x_2 = pose_2[0, 3]
+        y_2 = pose_2[1, 3]
+        z_2 = pose_2[2, 3]
+        scale_2 = np.sqrt(x_2**2+y_2**2+z_2**2)
+        return np.abs((scale_1 - scale_2) / scale_1)
+    
+    def scale_ratio(self, pose_1, pose_2):
+        """Compute scale ratio
+        Args:
+            pose_1 (4x4 array): pose_1
+            pose_2 (4x4 array): pose_2
+        Returns:
+            scale ratio (float)
+        """
+        x_1 = pose_1[0, 3]
+        y_1 = pose_1[1, 3]
+        z_1 = pose_1[2, 3]
+        scale_1 = np.sqrt(x_1**2+y_1**2+z_1**2)
+
+        x_2 = pose_2[0, 3]
+        y_2 = pose_2[1, 3]
+        z_2 = pose_2[2, 3]
+        scale_2 = np.sqrt(x_2**2+y_2**2+z_2**2)
+        return np.abs(scale_1 / scale_2)
+    
     
     def compute_ATE(self, gt, pred):
         """Compute RMSE of ATE

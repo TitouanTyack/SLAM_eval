@@ -9,6 +9,7 @@ import pickle
 
 from kitti_odometry import EvalOdom, umeyama_alignment
 
+
 class IsaeEvalOdom(EvalOdom):
     """Evaluate isae odometry result
     Usage example:
@@ -42,12 +43,12 @@ class IsaeEvalOdom(EvalOdom):
                     break
 
             P = np.eye(4)
-            line_split = [float(i) for i in line.split(" ") if i!=""]
+            line_split = [float(i) for i in line.split(" ") if i != ""]
             withIdx = len(line_split) == 14
             for row in range(3):
                 for col in range(4):
-                    P[row, col] = line_split[row*4 + col + 1 + withIdx] 
-            #if withIdx:
+                    P[row, col] = line_split[row*4 + col + 1 + withIdx]
+            # if withIdx:
             #    timestamps[line_split[1]] = line_split[0]
             #    poses[line_split[1]] = P
             else:
@@ -56,12 +57,57 @@ class IsaeEvalOdom(EvalOdom):
 
         return poses, timestamps
 
+    def compute_scale_error(self, gt, pred):
+        """Compute scale error
+        Args:
+            gt (4x4 array dict): ground-truth poses
+            pred (4x4 array dict): predicted poses
+        Returns:
+            scale errors
+        """
+        scale_errors = []
 
-    def eval(self, gt_dir, result_dir, 
-                alignment=None,
-                seqs=None,
-                filename=None,
-                length=-1):
+        for i in list(pred.keys())[:-1]:
+            gt1 = gt[i]
+            gt2 = gt[i+1]
+            gt_rel = np.linalg.inv(gt1) @ gt2
+
+            pred1 = pred[i]
+            pred2 = pred[i+1]
+            pred_rel = np.linalg.inv(pred1) @ pred2
+
+            scale_errors.append(self.scale_error(gt_rel, pred_rel))
+        return scale_errors
+
+    def compute_scale_ratio(self, gt, pred):
+        """Compute scale ration
+        Args:
+            gt (4x4 array dict): ground-truth poses
+            pred (4x4 array dict): predicted poses
+        Returns:
+            scale ratios
+        """
+        scale_ratios = []
+
+        for i in list(pred.keys())[:-1]:
+            gt1 = gt[i]
+            gt2 = gt[i+1]
+            gt_rel = np.linalg.inv(gt1) @ gt2
+
+            pred1 = pred[i]
+            pred2 = pred[i+1]
+            pred_rel = np.linalg.inv(pred1) @ pred2
+
+            scale_ratios.append(self.scale_ratio(gt_rel, pred_rel))
+
+        return scale_ratios
+
+
+    def eval(self, gt_dir, result_dir,
+             alignment=None,
+             seqs=None,
+             filename=None,
+             length=-1):
         """Evaulate required/available sequences
         Args:
             gt_dir (str): ground truth poses txt files directory
@@ -75,7 +121,8 @@ class IsaeEvalOdom(EvalOdom):
                 - None: Evalute all available seqs in result_dir
                 - list: list of sequence indexs to be evaluated
         """
-        seq_list = ["C1", "C3", "C4", "C5", "demo_coax", "demo_mars", "nonoverlapping_test", "chariot1", "chariot2", "chariot3", "chariot4"]
+        seq_list = ["C1", "C3", "C4", "C5", "demo_coax", "demo_mars",
+                    "nonoverlapping_test", "chariot1", "chariot2", "chariot3", "chariot4"]
 
         # Initialization
         self.gt_dir = gt_dir
@@ -85,7 +132,8 @@ class IsaeEvalOdom(EvalOdom):
 
         # Create evaluation list
         if seqs is None:
-            available_seqs = [os.path.basename(x).rsplit( ".", 1 )[ 0 ] for x in glob(result_dir+'/*.txt')]
+            available_seqs = [os.path.basename(x).rsplit(
+                ".", 1)[0] for x in glob(result_dir+'/*.txt')]
             self.eval_seqs = [i for i in available_seqs if i in seq_list]
         else:
             self.eval_seqs = seqs
@@ -103,15 +151,17 @@ class IsaeEvalOdom(EvalOdom):
             else:
                 result_file_name = filename
 
-            poses_result, timestamp_result = self.load_poses_from_txt_ts(result_dir + "/" + result_file_name, length)
-            poses_gt, timestamp_gt = self.load_poses_from_txt_ts(self.gt_dir + "/" + gt_file_name)
+            poses_result, timestamp_result = self.load_poses_from_txt_ts(
+                result_dir + "/" + result_file_name, length)
+            poses_gt, timestamp_gt = self.load_poses_from_txt_ts(
+                self.gt_dir + "/" + gt_file_name)
             self.result_file_name = result_dir + result_file_name
-            
+
             df_result = pd.DataFrame({
-                "timestamp" : timestamp_result
+                "timestamp": timestamp_result
             })
             df_gt = pd.DataFrame({
-                "timestamp" : timestamp_gt
+                "timestamp": timestamp_gt
             })
 
             poses_gt_sync = {}
@@ -122,7 +172,6 @@ class IsaeEvalOdom(EvalOdom):
 
                 counter += 1
             poses_gt = poses_gt_sync
-
 
             # Pose alignment to first frame
             idx_0 = sorted(list(poses_result.keys()))[0]
@@ -139,20 +188,23 @@ class IsaeEvalOdom(EvalOdom):
                 xyz_gt = []
                 xyz_result = []
                 for cnt in poses_result:
-                    xyz_gt.append([poses_gt[cnt][0, 3], poses_gt[cnt][1, 3], poses_gt[cnt][2, 3]])
-                    xyz_result.append([poses_result[cnt][0, 3], poses_result[cnt][1, 3], poses_result[cnt][2, 3]])
+                    xyz_gt.append(
+                        [poses_gt[cnt][0, 3], poses_gt[cnt][1, 3], poses_gt[cnt][2, 3]])
+                    xyz_result.append(
+                        [poses_result[cnt][0, 3], poses_result[cnt][1, 3], poses_result[cnt][2, 3]])
                 xyz_gt = np.asarray(xyz_gt).transpose(1, 0)
                 xyz_result = np.asarray(xyz_result).transpose(1, 0)
 
-                r, t, scale = umeyama_alignment(xyz_result, xyz_gt, alignment!="6dof")
+                r, t, scale = umeyama_alignment(
+                    xyz_result, xyz_gt, alignment != "6dof")
 
                 align_transformation = np.eye(4)
                 align_transformation[:3:, :3] = r
                 align_transformation[:3, 3] = t
-                
+
                 for cnt in poses_result:
                     poses_result[cnt][:3, 3] *= scale
-                    if alignment=="7dof" or alignment=="6dof":
+                    if alignment == "7dof" or alignment == "6dof":
                         poses_result[cnt] = align_transformation @ poses_result[cnt]
 
             # Compute ATE
@@ -163,16 +215,19 @@ class IsaeEvalOdom(EvalOdom):
 
             # Compute RPE
             rpe_trans, rpe_rot = self.compute_RPE(poses_gt, poses_result)
+            avg_scale_err = np.mean(np.asarray(self.compute_scale_error(poses_gt, poses_result)))
             seq_rpe_trans.append(rpe_trans)
             seq_rpe_rot.append(rpe_rot)
             print("RPE (m): ", rpe_trans)
-            print("RPE (deg): ", rpe_rot * 180 /np.pi)
+            print("RPE (deg): ", rpe_rot * 180 / np.pi)
+            print("Scale : ", avg_scale_err)
 
             # Plotting
             self.plot_path_dir = result_dir + "/plot_path"
             self.plot_trajectory(poses_gt, poses_result, self.cur_seq)
+            self.plot_scale_error(poses_gt, poses_result, self.cur_seq)
         return [ate, rpe_trans]
-    
+
     def plot_trajectory(self, poses_gt, poses_result, seq):
         """Plot trajectory for both GT and prediction
         Args:
@@ -186,7 +241,6 @@ class IsaeEvalOdom(EvalOdom):
         poses_dict = {}
         poses_dict["Ground Truth"] = poses_gt
         poses_dict["Ours"] = poses_result
-
 
         fig = plt.figure()
         ax = plt.gca()
@@ -212,3 +266,18 @@ class IsaeEvalOdom(EvalOdom):
         fig_pdf = self.plot_path_dir + "/" + png_title + ".pdf"
         plt.savefig(fig_pdf, bbox_inches='tight', pad_inches=0)
         plt.close(fig)
+
+    def plot_scale_error(self, poses_gt, poses_result, seq):
+
+        fig = plt.figure()
+        ax = plt.gca()
+        fontsize_ = 12
+
+        scale_ratio = self.compute_scale_ratio(poses_gt, poses_result)
+        plt.plot(scale_ratio, "*", color='red')
+
+        plt.xlabel('Keyframes', fontsize=fontsize_)
+        plt.ylabel('Scale ratio', fontsize=fontsize_)
+        ax.set_ylim([0, 2])
+        plt.show()
+
