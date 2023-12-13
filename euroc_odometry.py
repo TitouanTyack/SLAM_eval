@@ -98,7 +98,7 @@ class EurocEvalOdom(EvalOdom):
                 - None: Evalute all available seqs in result_dir
                 - list: list of sequence indexs to be evaluated
         """
-        seq_list = ["V1", "MH1"]
+        seq_list = ["V1", "MH1", "V3"]
 
         # Initialization
         self.gt_dir = gt_dir
@@ -173,12 +173,12 @@ class EurocEvalOdom(EvalOdom):
 
 
             # Pose alignment to first frame
-            idx_0 = sorted(list(poses_result.keys()))[0]
-            pred_0 = poses_result[idx_0]
-            gt_0 = poses_gt[idx_0]
-            for cnt in poses_result:
-                poses_result[cnt] = np.linalg.inv(pred_0) @ poses_result[cnt]
-                poses_gt[cnt] = np.linalg.inv(gt_0) @ poses_gt[cnt]
+            # idx_0 = sorted(list(poses_result.keys()))[0]
+            # pred_0 = poses_result[idx_0]
+            # gt_0 = poses_gt[idx_0]
+            # for cnt in poses_result:
+            #     poses_result[cnt] = np.linalg.inv(pred_0) @ poses_result[cnt]
+            #     poses_gt[cnt] = np.linalg.inv(gt_0) @ poses_gt[cnt]
 
             if alignment == "scale":
                 poses_result = self.scale_optimization(poses_gt, poses_result)
@@ -197,6 +197,7 @@ class EurocEvalOdom(EvalOdom):
                 align_transformation = np.eye(4)
                 align_transformation[:3:, :3] = r
                 align_transformation[:3, 3] = t
+                print(align_transformation)
                 
                 for cnt in poses_result:
                     poses_result[cnt][:3, 3] *= scale

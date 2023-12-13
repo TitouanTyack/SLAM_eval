@@ -75,6 +75,8 @@ class IsaeEvalOdom(EvalOdom):
             pred1 = pred[i]
             pred2 = pred[i+1]
             pred_rel = np.linalg.inv(pred1) @ pred2
+            
+            # print(i, " : ", self.scale_error(gt_rel, pred_rel))
 
             scale_errors.append(self.scale_error(gt_rel, pred_rel))
         return scale_errors
@@ -88,6 +90,7 @@ class IsaeEvalOdom(EvalOdom):
             scale ratios
         """
         scale_ratios = []
+        length = 0
 
         for i in list(pred.keys())[:-1]:
             gt1 = gt[i]
@@ -98,7 +101,14 @@ class IsaeEvalOdom(EvalOdom):
             pred2 = pred[i+1]
             pred_rel = np.linalg.inv(pred1) @ pred2
 
+            length += np.linalg.norm(gt_rel[0:3, 3])
+
+            if (np.linalg.norm(gt_rel[0:3, 3]) < 0.05):
+                continue
+
             scale_ratios.append(self.scale_ratio(gt_rel, pred_rel))
+        
+        print("Length : ", length)
 
         return scale_ratios
 
@@ -122,7 +132,8 @@ class IsaeEvalOdom(EvalOdom):
                 - list: list of sequence indexs to be evaluated
         """
         seq_list = ["C1", "C3", "C4", "C5", "demo_coax", "demo_mars",
-                    "nonoverlapping_test", "chariot1", "chariot2", "chariot3", "chariot4"]
+                    "nonoverlapping_test", "nonoverlapping_cave", "chariot1", "chariot2", "chariot3", "chariot4",
+                    "traj_3", "traj_4"]
 
         # Initialization
         self.gt_dir = gt_dir
@@ -241,6 +252,10 @@ class IsaeEvalOdom(EvalOdom):
         poses_dict = {}
         poses_dict["Ground Truth"] = poses_gt
         poses_dict["Ours"] = poses_result
+        
+        # Write in a csv
+        pose_df = pd.DataFrame(poses_dict)
+        pose_df.to_pickle('pose_chariot1_noscale.pkl')
 
         fig = plt.figure()
         ax = plt.gca()
@@ -274,8 +289,12 @@ class IsaeEvalOdom(EvalOdom):
         fontsize_ = 12
 
         scale_ratio = self.compute_scale_ratio(poses_gt, poses_result)
-        plt.plot(scale_ratio, "*", color='red')
 
+        # Write in a csv
+        # scale_df = pd.DataFrame(scale_ratio)
+        # scale_df.to_csv('scale.csv')
+
+        plt.plot(scale_ratio, "*", color='red')
         plt.xlabel('Keyframes', fontsize=fontsize_)
         plt.ylabel('Scale ratio', fontsize=fontsize_)
         ax.set_ylim([0, 2])
