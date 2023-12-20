@@ -1,2 +1,5 @@
 __pycache__/
 .vscode/
+pc_comparison/fisheye3_raw
+pc_comparison/fisheye3_viocloud
+pc_comparison/build
