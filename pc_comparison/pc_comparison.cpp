@@ -124,17 +124,17 @@ int main() {
     }
 
     float avg_score = 0;
-    uint n_clouds = 10;
+    uint n_clouds = 100;
     pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
     for (uint i = 0; i < n_clouds; i++) {
 
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(140).first, *cloud_in) == -1) //* load the file
+        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).first, *cloud_in) == -1) //* load the file
         {
             PCL_ERROR("Couldn't read file test_pcd.pcd \n");
             return (-1);
         }
 
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(140).second, *cloud_out) == -1) //* load the file
+        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).second, *cloud_out) == -1) //* load the file
         {
             PCL_ERROR("Couldn't read file test_pcd.pcd \n");
             return (-1);

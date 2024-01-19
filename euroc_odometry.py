@@ -98,7 +98,7 @@ class EurocEvalOdom(EvalOdom):
                 - None: Evalute all available seqs in result_dir
                 - list: list of sequence indexs to be evaluated
         """
-        seq_list = ["V1", "MH1", "V3"]
+        seq_list = ["V1", "MH1", "V3", "V2"]
 
         # Initialization
         self.gt_dir = gt_dir
