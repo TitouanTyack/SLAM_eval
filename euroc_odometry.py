@@ -49,6 +49,40 @@ class EurocEvalOdom(EvalOdom):
 
         return poses, timestamps
 
+    def load_poses_from_csv_isae(self, file_name):
+        """Load poses from txt (KITTI format + timestamp)
+        Each line in the file should follow one of the following structures
+            (1) timestamp
+            (2) pose(3x4 matrix in terms of 12 numbers)
+
+        Args:
+            file_name (str): txt file path
+        Returns:
+            poses (dict): {idx: 4x4 array}
+            timestamp (dict)
+        """
+        poses = {}
+        timestamp = {}
+
+        with open(file_name, newline='') as csvfile:
+            reader = csv.DictReader(csvfile)
+            counter = 0
+            for row in reader:
+                P = np.eye(4)
+                P[0, 3] = row[' T_wf(03)']
+                P[1, 3] = row[' T_wf(13)']
+                P[2, 3] = row[' T_wf(23)']
+
+                P[0:3, 0:3] = np.array([[row[' T_wf(00)'], row[' T_wf(01)'], row[' T_wf(02)']],
+                                        [row[' T_wf(10)'], row[' T_wf(11)'], row[' T_wf(12)']],
+                                        [row[' T_wf(20)'], row[' T_wf(21)'], row[' T_wf(22)']]])
+
+                poses[counter] = P
+                timestamp[counter] = int(row['timestamp (ns)'])
+                counter += 1
+
+        return poses, timestamp
+
     def load_poses_from_csv(self, file_name):
         """Load poses from csv (EUROC format)
         The poses are returned in the left camera frame
@@ -98,7 +132,7 @@ class EurocEvalOdom(EvalOdom):
                 - None: Evalute all available seqs in result_dir
                 - list: list of sequence indexs to be evaluated
         """
-        seq_list = ["V1", "MH1", "V3", "V2"]
+        seq_list = ["V1", "MH1", "V3", "V2", "V21", "V22", "V23", "MH2", "MH3", "MH4", "MH5"]
 
         # Initialization
         self.gt_dir = gt_dir
@@ -119,9 +153,9 @@ class EurocEvalOdom(EvalOdom):
             # Read pose txt
             self.cur_seq = '{}'.format(i)
             gt_file_name = '{}.csv'.format(i)
-            result_file_name = '{}.txt'.format(i)
+            result_file_name = '{}.csv'.format(i)
 
-            poses_result, timestamp_result = self.load_poses_from_txt_ts(result_dir + "/" + result_file_name)
+            poses_result, timestamp_result = self.load_poses_from_csv_isae(result_dir + "/" + result_file_name)
             poses_gt, timestamp_gt = self.load_poses_from_csv(self.gt_dir + "/" + gt_file_name)
             self.result_file_name = result_dir + result_file_name
 
@@ -156,6 +190,8 @@ class EurocEvalOdom(EvalOdom):
 
             for ts in df_gt['timestamp']:
                 counter_gt += 1
+                if (counter_gt > len(poses_gt)-1):
+                    break
                 idx = df_result['timestamp'].sub(float(ts)).abs().idxmin()
                 if (df_result['timestamp'].sub(float(ts)).abs()[idx] * 1e-9 > 0.1):
                     continue
