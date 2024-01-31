@@ -8,6 +8,7 @@ from glob import glob
 import pickle
 
 from kitti_odometry import EvalOdom, umeyama_alignment
+from data_parser import *
 
 
 class IsaeEvalOdom(EvalOdom):
@@ -16,46 +17,6 @@ class IsaeEvalOdom(EvalOdom):
         vo_eval = IsaeEvalOdom()
         vo_eval.eval(gt_pose_txt_dir, result_pose_txt_dir)
     """
-
-    def load_poses_from_txt_ts(self, file_name, length=-1):
-        """Load poses from txt (KITTI format + timestamp)
-        Each line in the file should follow one of the following structures
-            (1) timestamp
-            (2) pose(3x4 matrix in terms of 12 numbers)
-
-        Args:
-            file_name (str): txt file path
-        Returns:
-            poses (dict): {idx: 4x4 array}
-            timestamp (dict)
-        """
-        f = open(file_name, 'r')
-        s = f.readlines()
-        f.close()
-        poses = {}
-        timestamps = {}
-
-        for cnt, line in enumerate(s):
-
-            # Stop the loading if there is a length parameter
-            if (length != -1):
-                if (cnt > length):
-                    break
-
-            P = np.eye(4)
-            line_split = [float(i) for i in line.split(" ") if i != ""]
-            withIdx = len(line_split) == 14
-            for row in range(3):
-                for col in range(4):
-                    P[row, col] = line_split[row*4 + col + 1 + withIdx]
-            # if withIdx:
-            #    timestamps[line_split[1]] = line_split[0]
-            #    poses[line_split[1]] = P
-            else:
-                timestamps[cnt+1] = line_split[0]
-                poses[cnt+1] = P
-
-        return poses, timestamps
 
     def compute_scale_error(self, gt, pred):
         """Compute scale error
@@ -133,7 +94,7 @@ class IsaeEvalOdom(EvalOdom):
         """
         seq_list = ["C1", "C3", "C4", "C5", "demo_coax", "demo_mars",
                     "nonoverlapping_test", "nonoverlapping_cave", "chariot1", "chariot2", "chariot3", "chariot4",
-                    "traj_3", "traj_4"]
+                    "traj_3", "traj_4", "sar1", "tour_butte2", "grand_tour"]
 
         # Initialization
         self.gt_dir = gt_dir
@@ -144,7 +105,7 @@ class IsaeEvalOdom(EvalOdom):
         # Create evaluation list
         if seqs is None:
             available_seqs = [os.path.basename(x).rsplit(
-                ".", 1)[0] for x in glob(result_dir+'/*.txt')]
+                ".", 1)[0] for x in glob(result_dir+'/*.csv')]
             self.eval_seqs = [i for i in available_seqs if i in seq_list]
         else:
             self.eval_seqs = seqs
@@ -155,29 +116,31 @@ class IsaeEvalOdom(EvalOdom):
             self.cur_seq = i
             # Read pose txt
             self.cur_seq = '{}'.format(i)
-            gt_file_name = '{}.txt'.format(i)
+            gt_file_name = '{}.csv'.format(i)
 
             if (filename is None):
-                result_file_name = '{}.txt'.format(i)
+                result_file_name = '{}.csv'.format(i)
             else:
                 result_file_name = filename
 
-            poses_result, timestamp_result = self.load_poses_from_txt_ts(
-                result_dir + "/" + result_file_name, length)
-            poses_gt, timestamp_gt = self.load_poses_from_txt_ts(
+            poses_result, timestamp_result = load_poses_from_csv_isae(
+                result_dir + "/" + result_file_name)
+            poses_gt, timestamp_gt = load_poses_from_csv_isae(
                 self.gt_dir + "/" + gt_file_name)
             self.result_file_name = result_dir + result_file_name
 
             df_result = pd.DataFrame({
                 "timestamp": timestamp_result
             })
+            
             df_gt = pd.DataFrame({
                 "timestamp": timestamp_gt
             })
 
             poses_gt_sync = {}
-            counter = 1
+            counter = 0
             for ts in df_result['timestamp']:
+                
                 idx = df_gt['timestamp'].sub(float(ts)).abs().idxmin()
                 poses_gt_sync[counter] = poses_gt[idx]
 
@@ -236,7 +199,8 @@ class IsaeEvalOdom(EvalOdom):
             # Plotting
             self.plot_path_dir = result_dir + "/plot_path"
             self.plot_trajectory(poses_gt, poses_result, self.cur_seq)
-            self.plot_scale_error(poses_gt, poses_result, self.cur_seq)
+            self.compute_scale_ratio(poses_gt, poses_result)
+
         return [ate, rpe_trans]
 
     def plot_trajectory(self, poses_gt, poses_result, seq):
@@ -255,7 +219,6 @@ class IsaeEvalOdom(EvalOdom):
         
         # Write in a csv
         pose_df = pd.DataFrame(poses_dict)
-        pose_df.to_pickle('pose_chariot1_noscale.pkl')
 
         fig = plt.figure()
         ax = plt.gca()

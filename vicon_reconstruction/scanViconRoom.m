@@ -1,7 +1,7 @@
 %% Prepare groundtruth pointcloud
 
 ptCloud = pcread("/media/ce.debeunne/HDD/datasets/EUROC/" + ...
-    "raw_data/V1_01_easy_raw/mav0/pointcloud0/data.ply");
+    "raw_data/V1_01_easy/mav0/pointcloud0/data.ply");
 
 % Filter ceiling and points far away
 points = ptCloud.Location - mean(ptCloud.Location);
@@ -15,7 +15,7 @@ pcshow(ptCloudgt)
 
 % Read vio csv
 vio = readmatrix("/media/ce.debeunne/HDD/datasets/EUROC/" + ...
-    "cloud_v1/results.csv", 'OutputType', 'string');
+    "cloud_v2/results.csv", 'OutputType', 'string');
 
 % Extrinsic base / cam0
 T_r_cam0 = [0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975;
@@ -24,12 +24,12 @@ T_r_cam0 = [0.0148655429818, -0.999880929698, 0.00414029679422, -0.0216401454975
          0.0, 0.0, 0.0, 1.0];
 
 % Read data
-datapath = '/media/ce.debeunne/HDD/datasets/EUROC/cloud_v1/';
+datapath = '/media/ce.debeunne/HDD/datasets/EUROC/cloud_v2/';
 dir_scans = dir(datapath);
 pts_vio = [];
 
 for i=1:length(dir_scans)
-    if (mod(i, 2) ~= 0)
+    if (mod(i, 10) ~= 0)
         continue;
     end
     file = dir_scans(i);
@@ -84,10 +84,20 @@ T_init_v1 = [-0.979436191988437	-0.201696009764938	-0.00484411685361075	0;
 0.00441188211950296	-0.0454160116637457	0.998958418143980	0;
 0.749897301197052	1.39988183975220	-1.62852990627289	1];
 
+T_init_v3 = [-0.990795485080859	0.133929273114349	-0.0196788349870422	0;
+-0.133452007781089	-0.990768377367893	-0.0238450000416696	0;
+-0.0226907109315948	-0.0209993383432257	0.999521965454770	0;
+0.721335709095001	1.26596307754517	-1.72047352790833	1];
+
 T_init_v21 = [0.999380811371693	0.0320404992230440	0.0145396104348015	0;
 -0.0333032639860411	0.994720637337633	0.0970656801474610	0;
 -0.0113528177089977	-0.0974897946666790	0.995171770834521	0;
 -0.484087318181992	-0.161353424191475	-1.32720959186554	1];
+
+T_init_v22 = [0.990527131116437	0.134829761527800	-0.0260180308362898	0;
+-0.133955789188344	0.990443108642047	0.0328374037707960	0;
+0.0301968386618480	-0.0290410734965965	0.999121998048784	0;
+-0.483454793691635	-0.167129218578339	-1.45275104045868	1];
 
 angle =  0;
 R_z = [cos(angle) -sin(angle) 0 0;
@@ -95,7 +105,7 @@ R_z = [cos(angle) -sin(angle) 0 0;
     0 0 1 0;
     0 0 0 1];
 
-tform_init = rigid3d(T_init_v1 * R_z);
+tform_init = rigid3d(T_init_v2 * R_z);
 [tform, pctransformed, rmse] = pcregistericp(ptcloud_vio_full, ptCloudgt ,...
     'Verbose', true, 'InitialTransform', tform_init, ...
     'MaxIterations', 20, 'Tolerance', [0.01, 0.005]);
@@ -130,10 +140,10 @@ colormap("jet");
 
 %% Display error completeness
 
-tform_init = rigid3d(T_init_v1 * R_z);
+tform_init = rigid3d(T_init_v22 * R_z);
 [tform, pctransformed, rmse] = pcregistericp(ptCloudgt, ptcloud_vio_full,...
     'Verbose', true, 'InitialTransform', tform_init.invert, ...
-    'MaxIterations', 20, 'Tolerance', [0.01, 0.005]);
+    'MaxIterations', 1, 'Tolerance', [0.01, 0.005]);
 
 pointXYZ = zeros(length(pctransformed.Location), 3);
 intensity = zeros(length(pctransformed.Location), 1);
