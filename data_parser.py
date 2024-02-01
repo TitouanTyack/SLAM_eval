@@ -116,6 +116,39 @@ def load_poses_from_csv_EUROC(file_name):
             counter += 1
     return poses, timestamp
 
+def load_poses_from_csv_KIMERA(file_name):
+    """Load poses from csv (KIMERA format)
+    The poses are returned in the left camera frame
+
+    Args:
+        file_name (str): txt file path
+    Returns:
+        poses (dict): {idx: 4x4 array}
+        timestamp (dict)
+    """
+    poses = {}
+    timestamp = {}
+
+    with open(file_name, newline='') as csvfile:
+        reader = csv.DictReader(csvfile)
+        counter = 0
+        for row in reader:
+            P = np.eye(4)
+            P[0, 3] = row['x']
+            P[1, 3] = row['y']
+            P[2, 3] = row['z']
+
+            r = Rotation.from_quat([row['qx'],
+                                    row['qy'],
+                                    row['qz'],
+                                    row['qw']])
+
+            P[0:3, 0:3] = r.as_matrix()
+            poses[counter] = P
+            timestamp[counter] = int(row['#timestamp'])
+            counter += 1
+    return poses, timestamp
+
 def load_poses_from_csv_OIVIO(file_name):
         """Load poses from csv (OVIO format)
         The poses are returned in the left camera frame

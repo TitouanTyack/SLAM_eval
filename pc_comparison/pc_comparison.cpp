@@ -15,6 +15,8 @@
 #include <opencv2/highgui.hpp>
 #include <opencv2/imgcodecs.hpp>
 
+#include <yaml-cpp/yaml.h>
+
 namespace fs = std::filesystem;
 
 std::vector<long long> extract_ts_from_csv(std::string file_path) {
@@ -92,18 +94,28 @@ inline float avg_registration_err(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in,
 
 int main() {
 
+    // Read param file
+    YAML::Node config = YAML::LoadFile("param.yaml");
+
+    // Init pointcloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_original(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_transformed(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out(new pcl::PointCloud<pcl::PointXYZ>);
 
     // Parse lidar scans
-    std::string path_lidar              = "fisheye3_raw/mav0/lidar0/data";
+    std::string path_lidar              = config["path lidar cloud"].as<std::string>();
     std::vector<long long> ts_lidar_vec = extract_ts_from_path(path_lidar);
 
     // Parse vio cloud directory
-    std::string path_vio              = "fisheye3_viocloud";
+    std::string path_vio              = config["path vio cloud"].as<std::string>();
     std::vector<long long> ts_vio_vec = extract_ts_from_path(path_vio);
+
+    // Init transformation 
+    std::vector<float> data_T(16);
+    data_T = config["T_init"].as<std::vector<float>>();
+    Eigen::Matrix4f T_init = Eigen::Map<Eigen::Affine3f::MatrixType>(&data_T[0], 4, 4).transpose();
+    std::cout << T_init << std::endl;
 
     // Associate scans
     std::vector<std::pair<std::string, std::string>> vio_lidar_pairs;
@@ -124,9 +136,12 @@ int main() {
     }
 
     float avg_score = 0;
-    uint n_clouds = 100;
+    int i_start = config["i_start"].as<int>();
+    int i_stop = config["i_stop"].as<int>();
+    int n_clouds = (i_stop - i_start);
     pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
-    for (uint i = 0; i < n_clouds; i++) {
+    pcl::PointCloud<pcl::PointXYZ> Final;
+    for (int i = i_start; i < i_stop; i++) {
 
         if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).first, *cloud_in) == -1) //* load the file
         {
@@ -140,19 +155,17 @@ int main() {
             return (-1);
         }
 
-        icp.setInputSource(cloud_in);
+        pcl::transformPointCloud(*cloud_in, *cloud_in_original, T_init.inverse());
+        icp.setInputSource(cloud_in_original);
         icp.setInputTarget(cloud_out);
         icp.setMaxCorrespondenceDistance(0.5);
-        pcl::PointCloud<pcl::PointXYZ> Final;
         icp.align(Final);
         avg_score += icp.getFitnessScore();
-
     }
     avg_score /= (float)n_clouds;
-    std::cout << "Average fitness score : " << avg_score << std::endl;
 
     // Align VIO cloud
-    pcl::transformPointCloud(*cloud_in, *cloud_in_transformed, icp.getFinalTransformation());
+    pcl::transformPointCloud(*cloud_in_original, *cloud_in_transformed, icp.getFinalTransformation());
     pcl::CorrespondencesPtr coresp = icp.correspondences_;
 
     // Color input cloud w.r.t. distance to output cloud
@@ -178,7 +191,7 @@ int main() {
         cloud_colored->push_back(pt_xyzrgb);
     }
 
-    std::cout << "Avg distance : " << avg_registration_err(cloud_out, cloud_in_transformed) << std::endl;
+    std::cout << "Avg distance : " << avg_registration_err(cloud_out, cloud_in_original) << std::endl;
 
     std::cout << "has converged:" << icp.hasConverged() << " score: " << icp.getFitnessScore() << std::endl;
     std::cout << icp.getFinalTransformation() << std::endl;

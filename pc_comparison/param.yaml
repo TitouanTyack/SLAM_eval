@@ -1,0 +1,13 @@
+# Path of clouds
+path vio cloud: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/vio_cloud/cloud_tour_butte2"
+path lidar cloud: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/lidar0/data"
+
+# Init transformation for IC (config 30 degrees)
+T_init: [0.41781005221598, -0.9082148837332001, 0.0242190362432, 0.39006111381106945, 
+-0.3594150118831, -0.18970812763180006, -0.9136933553558001, 0.0162892477353462, 
+0.8344225142, 0.3730435716611, -0.40568692739340007, -0.8636449516280552, 
+0.0, 0.0, 0.0, 1.0] 
+
+# Beginning and end of loop
+i_start: 169
+i_stop: 170

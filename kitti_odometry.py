@@ -3,8 +3,65 @@
 import copy
 from matplotlib import pyplot as plt
 import numpy as np
+import pinocchio as pin
 import os
+from scipy import optimize
 from glob import glob
+
+class gtSLAMCalibration:
+    def __init__(self, gt_M_fgt_traj, w_M_f_traj):
+        self.x_arr = []
+        self.cost_arr = []
+        self.w_M_f_traj = w_M_f_traj
+        self.gt_M_fgt_traj = gt_M_fgt_traj
+        self.N = len(gt_M_fgt_traj)
+        self.N_res = 3*self.N  # size of the trajectory x 6 degrees of freedom of the se3 lie algebra
+
+    def f(self, x):
+        self.x_arr.append(x)
+        gt_nu_slam = x[:6]  # currently estimated transfo as se3 6D vector representation
+        cm_nu_camera = x[6:12]
+        gt_M_w = pin.exp6(gt_nu_slam)  # currently estimated transfo as SE3 Lie group
+        fgt_M_f = pin.exp6(cm_nu_camera)
+
+
+        res = np.zeros(self.N_res)
+        i = 0
+        for cnt in self.w_M_f_traj:
+            gt_M_fgt = pin.SE3(self.gt_M_fgt_traj[cnt])
+            w_M_f = pin.SE3(self.w_M_f_traj[cnt])
+
+            res[3*i:3*i+3]   = (gt_M_w.inverse() * gt_M_fgt * fgt_M_f).translation - w_M_f.translation
+            i+=1
+            
+        self.cost_arr.append(np.linalg.norm(res))
+
+        return res
+    
+class GtCalibration:
+    def __init__(self, w_M_fgt_traj, w_M_f_traj):
+        self.x_arr = []
+        self.cost_arr = []
+        self.w_M_f_traj = w_M_f_traj
+        self.w_M_fgt_traj = w_M_fgt_traj
+        self.N = len(w_M_fgt_traj)
+        self.N_res = 3*self.N  # size of the trajectory x 6 degrees of freedom of the se3 lie algebra
+
+    def f(self, x):
+        self.x_arr.append(x)
+        fgt_M_f = pin.SE3.Identity()  # currently estimated transfo as SE3 Lie group
+        fgt_M_f.translation = x[:3]
+
+
+        res = np.zeros(self.N_res)
+        for i in range(self.N):
+            w_M_fgt = pin.SE3(self.w_M_fgt_traj[i])
+            w_M_f = pin.SE3(self.w_M_f_traj[i])
+            res[3*i:3*i+3]   = (w_M_fgt * fgt_M_f).translation - w_M_f.translation
+            
+        self.cost_arr.append(np.linalg.norm(res))
+
+        return res
 
 
 def scale_lse_solver(X, Y):
@@ -18,6 +75,38 @@ def scale_lse_solver(X, Y):
     """
     scale = np.sum(X * Y)/np.sum(X ** 2)
     return scale
+
+def full_alignment(w_M_f_traj, wgt_M_fgt_traj):
+    # Calibration between gt and slam frames
+    cost = gtSLAMCalibration(wgt_M_fgt_traj, w_M_f_traj)
+    N = len(wgt_M_fgt_traj)
+    x0 = np.zeros(13)  # chosen to be [nu_c, nu_b]
+    x0[12] = 1
+    # x0 = np.zeros(12)
+    r = optimize.least_squares(cost.f, x0, jac='2-point', method='lm', verbose=2)
+    wgt_M_w = pin.exp6(r.x[:6])
+    fgt_M_f = pin.exp6(r.x[6:12])
+    
+    w_M_f_gt_traj = {}
+    for cnt in w_M_f_traj:
+        w_M_f_gt_traj[cnt] = (wgt_M_w.inverse() * pin.SE3(wgt_M_fgt_traj[cnt]) * fgt_M_f).np
+        
+    return  w_M_f_gt_traj
+
+def gt_alignment(w_M_f_traj, w_M_fgt_traj):
+    # Calibration between gt and slam frames
+    cost = GtCalibration(w_M_fgt_traj, w_M_f_traj)
+    N = len(w_M_fgt_traj)
+    x0 = np.zeros(6)  # chosen to be [nu_c]
+    # x0 = np.zeros(12)
+    r = optimize.least_squares(cost.f, x0, jac='2-point', method='lm', verbose=2)
+    fgt_M_f = pin.exp6(r.x)
+    
+    w_M_f_gt_traj = {}
+    for cnt in w_M_f_traj:
+        w_M_f_gt_traj[cnt] = (pin.SE3(w_M_fgt_traj[cnt]) * fgt_M_f).np
+        
+    return  w_M_f_gt_traj
 
 
 def umeyama_alignment(x, y, with_scale=False):

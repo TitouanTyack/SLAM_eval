@@ -7,7 +7,7 @@ import os
 from glob import glob
 import pickle
 
-from kitti_odometry import EvalOdom, umeyama_alignment
+from kitti_odometry import EvalOdom, umeyama_alignment, gt_alignment, full_alignment
 from data_parser import *
 
 
@@ -180,6 +180,8 @@ class IsaeEvalOdom(EvalOdom):
                     poses_result[cnt][:3, 3] *= scale
                     if alignment == "7dof" or alignment == "6dof":
                         poses_result[cnt] = align_transformation @ poses_result[cnt]
+            
+            poses_gt = full_alignment(poses_result, poses_gt)
 
             # Compute ATE
             ate = self.compute_ATE(poses_gt, poses_result)
@@ -189,12 +191,12 @@ class IsaeEvalOdom(EvalOdom):
 
             # Compute RPE
             rpe_trans, rpe_rot = self.compute_RPE(poses_gt, poses_result)
-            avg_scale_err = np.mean(np.asarray(self.compute_scale_error(poses_gt, poses_result)))
+            # avg_scale_err = np.mean(np.asarray(self.compute_scale_error(poses_gt, poses_result)))
             seq_rpe_trans.append(rpe_trans)
             seq_rpe_rot.append(rpe_rot)
             print("RPE (m): ", rpe_trans)
             print("RPE (deg): ", rpe_rot * 180 / np.pi)
-            print("Scale : ", avg_scale_err)
+            # print("Scale : ", avg_scale_err)
 
             # Plotting
             self.plot_path_dir = result_dir + "/plot_path"
