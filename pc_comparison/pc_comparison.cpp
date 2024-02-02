@@ -19,6 +19,14 @@
 
 namespace fs = std::filesystem;
 
+void remove_negativex(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out) {
+
+    cloud_out->clear();
+    for (auto pt : cloud_in->points)
+        if (pt.x > 0)
+            cloud_out->points.push_back(pt);
+}
+
 std::vector<long long> extract_ts_from_csv(std::string file_path) {
 
     std::vector<long long> ts_vec;
@@ -62,6 +70,9 @@ std::vector<long long> extract_ts_from_path(std::string path) {
         ts_vec.push_back(std::stoll(ts_str));
     }
 
+    // Sort vector
+    std::sort(ts_vec.begin(), ts_vec.end());
+
     return ts_vec;
 }
 
@@ -74,7 +85,8 @@ pcl::visualization::PCLVisualizer::Ptr cloud_visu(pcl::PointCloud<pcl::PointXYZR
 }
 
 inline float avg_registration_err(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in,
-                                  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out) {
+                                  pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out,
+                                  double thresh) {
 
     // Search for a nearest neighbour for each points of the input cloud
     pcl::KdTreeFLANN<pcl::PointXYZ> kdtree;
@@ -85,7 +97,8 @@ inline float avg_registration_err(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in,
         std::vector<float> pointKNNSquaredDistance(1);
 
         kdtree.nearestKSearch(pt, 1, pointIdxKNNSearch, pointKNNSquaredDistance);
-        avg_distance += pointKNNSquaredDistance.at(0);
+        if (pointKNNSquaredDistance.at(0) < thresh)
+            avg_distance += pointKNNSquaredDistance.at(0);
     }
     avg_distance /= (float)cloud_out->size();
 
@@ -101,6 +114,7 @@ int main() {
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_original(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_transformed(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out_raw(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out(new pcl::PointCloud<pcl::PointXYZ>);
 
     // Parse lidar scans
@@ -111,16 +125,15 @@ int main() {
     std::string path_vio              = config["path vio cloud"].as<std::string>();
     std::vector<long long> ts_vio_vec = extract_ts_from_path(path_vio);
 
-    // Init transformation 
+    // Init transformation
     std::vector<float> data_T(16);
-    data_T = config["T_init"].as<std::vector<float>>();
+    data_T                 = config["T_init"].as<std::vector<float>>();
     Eigen::Matrix4f T_init = Eigen::Map<Eigen::Affine3f::MatrixType>(&data_T[0], 4, 4).transpose();
-    std::cout << T_init << std::endl;
 
     // Associate scans
     std::vector<std::pair<std::string, std::string>> vio_lidar_pairs;
     for (auto ts_vio : ts_vio_vec) {
-        double dt_min = 100000000000000;
+        double dt_min = config["dt_min"].as<double>() * 1e9;
         long long ts_lidar_assoc;
 
         for (auto ts_lidar : ts_lidar_vec) {
@@ -131,17 +144,27 @@ int main() {
             }
         }
 
-        vio_lidar_pairs.push_back({path_vio + "/" + std::to_string(ts_vio) + ".pcd",
-                                   path_lidar + "/" + std::to_string(ts_lidar_assoc) + ".pcd"});
+        if (dt_min < config["dt_min"].as<double>() * 1e9)
+            vio_lidar_pairs.push_back({path_vio + "/" + std::to_string(ts_vio) + ".pcd",
+                                       path_lidar + "/" + std::to_string(ts_lidar_assoc) + ".pcd"});
     }
 
-    float avg_score = 0;
-    int i_start = config["i_start"].as<int>();
-    int i_stop = config["i_stop"].as<int>();
-    int n_clouds = (i_stop - i_start);
+    std::cout << "length : " << vio_lidar_pairs.size() << std::endl;
+
+    float avg_score_accuracy     = 0;
+    float avg_score_completeness = 0;
+    int i_start                  = config["i_start"].as<int>();
+    int i_stop                   = config["i_stop"].as<int>();
+    int n_clouds                 = (i_stop - i_start);
+    int n_cloud_to_eval          = config["n_cloud_to_eval"].as<int>();
+    int ratio                    = std::round((double)n_clouds / (double)n_cloud_to_eval);
+
     pcl::IterativeClosestPoint<pcl::PointXYZ, pcl::PointXYZ> icp;
     pcl::PointCloud<pcl::PointXYZ> Final;
+    int counter = 0;
     for (int i = i_start; i < i_stop; i++) {
+        if (i % ratio != 0)
+            continue;
 
         if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).first, *cloud_in) == -1) //* load the file
         {
@@ -149,52 +172,59 @@ int main() {
             return (-1);
         }
 
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).second, *cloud_out) == -1) //* load the file
+        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).second, *cloud_out_raw) == -1) //* load the file
         {
             PCL_ERROR("Couldn't read file test_pcd.pcd \n");
             return (-1);
         }
 
-        pcl::transformPointCloud(*cloud_in, *cloud_in_original, T_init.inverse());
+        // Remove negative x for a lighter pc
+        remove_negativex(cloud_out_raw, cloud_out);
+
+        // Perform ICP
+        pcl::transformPointCloud(*cloud_in, *cloud_in_original, T_init);
         icp.setInputSource(cloud_in_original);
         icp.setInputTarget(cloud_out);
         icp.setMaxCorrespondenceDistance(0.5);
         icp.align(Final);
-        avg_score += icp.getFitnessScore();
-    }
-    avg_score /= (float)n_clouds;
 
-    // Align VIO cloud
-    pcl::transformPointCloud(*cloud_in_original, *cloud_in_transformed, icp.getFinalTransformation());
-    pcl::CorrespondencesPtr coresp = icp.correspondences_;
+        // Align VIO cloud
+        pcl::transformPointCloud(*cloud_in_original, *cloud_in_transformed, icp.getFinalTransformation());
+
+        // Update scores
+        avg_score_accuracy += icp.getFitnessScore();
+        avg_score_completeness += avg_registration_err(cloud_in_transformed, cloud_out, 1.0);
+        counter++;
+    }
+
+    // Compute scores
+    avg_score_accuracy /= (float)counter;
+    avg_score_completeness /= (float)counter;
+
+    std::cout << "Accuracy : " << avg_score_accuracy << std::endl;
+    std::cout << "Completeness : " << avg_score_completeness << std::endl;
+
 
     // Color input cloud w.r.t. distance to output cloud
-    pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
-    for (uint32_t i = 0; i < icp.correspondences_->size(); i++) {
-        pcl::Correspondence currentCorrespondence = (icp.correspondences_)->at(i);
-        // std::cout << "Index of the source point: " << currentCorrespondence.index_query << std::endl;
-        // std::cout << "Index of the matching target point: " << currentCorrespondence.index_match << std::endl;
-        // std::cout << "Distance between the corresponding points: " << currentCorrespondence.distance << std::endl;
-        // std::cout << "Weight of the confidence in the correspondence: " << currentCorrespondence.weight << std::endl;
-        pcl::PointXYZ pt_xyz = cloud_in->at(currentCorrespondence.index_query);
-        pcl::PointXYZRGB pt_xyzrgb;
-        pt_xyzrgb.x = pt_xyz.x;
-        pt_xyzrgb.y = pt_xyz.y;
-        pt_xyzrgb.z = pt_xyz.z;
+    // pcl::PointCloud<pcl::PointXYZRGB>::Ptr cloud_colored(new pcl::PointCloud<pcl::PointXYZRGB>);
+    // for (uint32_t i = 0; i < icp.correspondences_->size(); i++) {
+    //     pcl::Correspondence currentCorrespondence = (icp.correspondences_)->at(i);
+    //     // std::cout << "Index of the source point: " << currentCorrespondence.index_query << std::endl;
+    //     // std::cout << "Index of the matching target point: " << currentCorrespondence.index_match << std::endl;
+    //     // std::cout << "Distance between the corresponding points: " << currentCorrespondence.distance << std::endl;
+    //     // std::cout << "Weight of the confidence in the correspondence: " << currentCorrespondence.weight <<
+    //     std::endl; pcl::PointXYZ pt_xyz = cloud_in->at(currentCorrespondence.index_query); pcl::PointXYZRGB
+    //     pt_xyzrgb; pt_xyzrgb.x = pt_xyz.x; pt_xyzrgb.y = pt_xyz.y; pt_xyzrgb.z = pt_xyz.z;
 
-        // Set color
-        double color[3];
-        pt_xyzrgb.r = (int)(255 * currentCorrespondence.distance / 0.1);
-        pt_xyzrgb.g = 0;
-        pt_xyzrgb.b = 0;
-        pt_xyzrgb.a = 255;
-        cloud_colored->push_back(pt_xyzrgb);
-    }
+    //     // Set color
+    //     double color[3];
+    //     pt_xyzrgb.r = (int)(255 * currentCorrespondence.distance / 0.1);
+    //     pt_xyzrgb.g = 0;
+    //     pt_xyzrgb.b = 0;
+    //     pt_xyzrgb.a = 255;
+    //     cloud_colored->push_back(pt_xyzrgb);
+    // }
 
-    std::cout << "Avg distance : " << avg_registration_err(cloud_out, cloud_in_original) << std::endl;
-
-    std::cout << "has converged:" << icp.hasConverged() << " score: " << icp.getFitnessScore() << std::endl;
-    std::cout << icp.getFinalTransformation() << std::endl;
 
     pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D viewer"));
     viewer->addPointCloud<pcl::PointXYZ>(cloud_in_transformed, "sample cloud");
