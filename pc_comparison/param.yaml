@@ -1,17 +1,18 @@
 # Path of clouds
-path vio cloud: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/vio_cloud/cloud_tour_butte2"
-path lidar cloud: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/lidar0/data"
+path vio cloud: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/kimera_cloud/cloud_boucle1"
+path lidar cloud: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/boucle1_raw/lidar0/data"
 
 # threshold for scan / cloud association (in s)
 dt_min: 0.025
 
 # Init transformation for IC (config 30 degrees)
 T_init: [0.41781005221598, -0.3594150118831, 0.8344225142, 0.5635279377531592, 
--0.9082148837332001, -0.18970812763180006, 0.3730435716611, 0.6795267092195737, 
+-0.9082148837332001, -0.18970812763180006, 0.3730435716611, 0.2595267092195737, 
 0.0242190362432, -0.9136933553558001, -0.40568692739340007, -0.3449329936177303, 
 0.0, 0.0, 0.0, 1.0]
 
 # Beginning and end of loop
 i_start: 1
-i_stop: 257
+i_stop: 159
 n_cloud_to_eval: 100
+

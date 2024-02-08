@@ -3,4 +3,6 @@ __pycache__/
 pc_comparison/fisheye3_raw
 pc_comparison/fisheye3_viocloud
 pc_comparison/build
+dense_stereo_fisheye/build
+dense_stereo_fisheye/cloud
 result/

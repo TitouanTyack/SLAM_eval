@@ -27,6 +27,14 @@ void remove_negativex(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in, pcl::PointCl
             cloud_out->points.push_back(pt);
 }
 
+void remove_aroundrobot(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in, pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out) {
+
+    cloud_out->clear();
+    for (auto pt : cloud_in->points)
+        if (sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z) > 1.5)
+            cloud_out->points.push_back(pt);
+}
+
 std::vector<long long> extract_ts_from_csv(std::string file_path) {
 
     std::vector<long long> ts_vec;
@@ -93,6 +101,7 @@ inline float avg_registration_err(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in,
     kdtree.setInputCloud(cloud_in);
     float avg_distance = 0;
     for (auto pt : cloud_out->points) {
+        
         std::vector<int> pointIdxKNNSearch(1);
         std::vector<float> pointKNNSquaredDistance(1);
 
@@ -112,6 +121,7 @@ int main() {
 
     // Init pointcloud
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in(new pcl::PointCloud<pcl::PointXYZ>);
+    pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_raw(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_original(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in_transformed(new pcl::PointCloud<pcl::PointXYZ>);
     pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_out_raw(new pcl::PointCloud<pcl::PointXYZ>);
@@ -166,20 +176,21 @@ int main() {
         if (i % ratio != 0)
             continue;
 
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).first, *cloud_in) == -1) //* load the file
+        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).first, *cloud_in_raw) == -1) //* load the file
         {
             PCL_ERROR("Couldn't read file test_pcd.pcd \n");
             return (-1);
         }
 
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).second, *cloud_out_raw) == -1) //* load the file
+        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).second, *cloud_out) == -1) //* load the file
         {
             PCL_ERROR("Couldn't read file test_pcd.pcd \n");
             return (-1);
         }
 
         // Remove negative x for a lighter pc
-        remove_negativex(cloud_out_raw, cloud_out);
+        // remove_negativex(cloud_out_raw, cloud_out);
+        remove_aroundrobot(cloud_in_raw, cloud_in);
 
         // Perform ICP
         pcl::transformPointCloud(*cloud_in, *cloud_in_original, T_init);
@@ -193,7 +204,7 @@ int main() {
 
         // Update scores
         avg_score_accuracy += icp.getFitnessScore();
-        avg_score_completeness += avg_registration_err(cloud_in_transformed, cloud_out, 1.0);
+        avg_score_completeness += avg_registration_err(cloud_in_transformed, cloud_out, 0.5);
         counter++;
     }
 

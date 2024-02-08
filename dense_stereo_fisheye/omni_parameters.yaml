@@ -1,0 +1,74 @@
+%YAML:1.0
+
+cam_model: stereo
+
+Kl: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [ 675.75991887, 0 , 326.18136361,
+           0, 675.65288562, 266.29459857,
+           0, 0, 1 ]
+
+Kr: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data: [675.52682632, 0, 317.11733657,
+           0, 675.18165153, 253.46122259,
+           0, 0, 1 ]
+
+Dl: !!opencv-matrix
+   rows: 1
+   cols: 4
+   dt: d
+   data: [ -0.02218662,  0.03378556, -0.00073246, -0.00186096]
+
+Dr: !!opencv-matrix
+   rows: 1
+   cols: 4
+   dt: d
+   data: [ -0.00283503, -0.00812376, -0.00040285, -0.00074086 ]
+
+Rl: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data:     [ 1, 0, 0,
+               0, 1, 0,
+               0, 0, 1 ]
+
+
+Rr: !!opencv-matrix
+   rows: 3
+   cols: 3
+   dt: d
+   data:[ 0.999749, 0.00163679, -0.0223313, 
+          -0.00167792, 0.999997, -0.00182314,
+           0.0223282, 0.00186015, 0.999749  ]
+
+   
+
+
+
+xil: !!opencv-matrix
+   rows: 1
+   cols: 1
+   dt: d
+   data: [ 1.6778907 ]
+
+
+xir: !!opencv-matrix
+   rows: 1
+   cols: 1
+   dt: d
+   data: [ 1.68367149]
+
+
+T: !!opencv-matrix
+   rows: 3
+   cols: 1
+   dt: d
+   data: [ -0.12555761,  0.00030278,  0.00010497 ]
+
+cap_size: [ 640, 512 ]
