@@ -3,6 +3,8 @@
 
 #include "denseStereo.hpp"
 
+#include <yaml-cpp/yaml.h>
+
 std::vector<long long> extract_ts_from_path(std::string path) {
 
     std::string word;
@@ -29,16 +31,19 @@ std::vector<long long> extract_ts_from_path(std::string path) {
 
 int main() {
 
+    // Read param file
+    YAML::Node config = YAML::LoadFile("param.yaml");
+
     // Load path and timestamps
-    std::string path_camleft  = "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/boucle1_raw/cam0/data";
-    std::string path_camright = "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/boucle1_raw/cam1/data";
+    std::string path_camleft  = config["path cam left"].as<std::string>();
+    std::string path_camright = config["path cam right"].as<std::string>();
     std::vector<long long> ts_left_vec  = extract_ts_from_path(path_camleft);
     std::vector<long long> ts_right_vec = extract_ts_from_path(path_camright);
 
     // Associate stereo pairs
     std::vector<std::pair<std::string, std::string>> left_right_pairs;
     for (auto ts_left : ts_left_vec) {
-        double dt_min = 0.0025 * 1e9;
+        double dt_min = config["dt_min"].as<double>() * 1e9;
         long long ts_right_assoc;
 
         for (auto ts_right : ts_right_vec) {
@@ -49,15 +54,16 @@ int main() {
             }
         }
 
-        if (dt_min < 0.0025 * 1e9)
+        if (dt_min < config["dt_min"].as<double>() * 1e9)
             left_right_pairs.push_back({std::to_string(ts_left), std::to_string(ts_right_assoc)});
     }
 
     // Load parameters
     std::string file_name = "omni_parameters.yaml";
     denseStereo ds        = denseStereo(file_name);
-    ds._ndisp             = 64;
-    ds._wsize             = 7;
+    ds._vfov              = config["vfov"].as<double>();
+    ds._ndisp             = config["ndisp"].as<double>();
+    ds._wsize             = config["wsize"].as<double>();
     ds.InitRectifyMap();
 
     double dt_total = 0;

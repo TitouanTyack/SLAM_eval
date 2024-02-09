@@ -30,8 +30,8 @@ denseStereo::denseStereo(std::string configfilepath) : _configfilepath(configfil
     }
     fs.release();
 
-    _cap_cols  = cap_size.width;
-    _cap_rows  = cap_size.height;
+    _cap_cols = cap_size.width;
+    _cap_rows = cap_size.height;
     _width    = _cap_cols;
     _height   = _cap_rows;
 }
@@ -140,9 +140,6 @@ void denseStereo::DisparityImage(const cv::Mat &recl, const cv::Mat &recr, cv::M
 
     // How to get the depth map
     double fx = Knew.at<double>(0, 0);
-    // double fy = Knew.at<double>(1,1);
-    // double cx = Knew.at<double>(0,2);
-    // double cy = Knew.at<double>(1,2);
     double bl = -Translation.at<double>(0, 0);
 
     cv::Mat dispf;
@@ -151,8 +148,6 @@ void denseStereo::DisparityImage(const cv::Mat &recl, const cv::Mat &recr, cv::M
 
     for (int r = 0; r < dispf.rows; ++r) {
         for (int c = 0; c < dispf.cols; ++c) {
-            // double e = (c - cx) / fx;
-            // double f = (r - cy) / fy;
 
             double disp = dispf.at<float>(r, c);
             if (disp <= 0.f) {
@@ -175,15 +170,21 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr denseStereo::pcFromDepthMap(const cv::Mat &d
     for (int r = 0; r < depth_map.rows; ++r) {
         for (int c = 0; c < depth_map.cols; ++c) {
 
-            double z = static_cast<double>(depth_map.at<float>(r, c));
-            if (z > 20 || z < 0)
-                continue;
+                double z = static_cast<double>(depth_map.at<float>(r, c));
+                if (z > 10 || z < 0)
+                    continue;
 
-            pcl::PointXYZ pt;
-            pt.x = (((double)c - c_x) / f_x) * z;
-            pt.y = (((double)r - c_y) / f_y) * z;
-            pt.z = z;
-            pointcloud->points.push_back(pt);
+                double x = (double)(c - c_x) / f_x;
+                double y = (double)(r - c_y) / f_y;
+
+                cv::Vec3d ptcv(x, y, 1);
+                double nptcv = cv::norm(ptcv, cv::NORM_L2);
+                pcl::PointXYZ pt;
+                pt.x = x * z / nptcv;
+                pt.y = y * z / nptcv;
+                pt.z = z / nptcv;
+                pointcloud->points.push_back(pt);
+            }
         }
     }
 

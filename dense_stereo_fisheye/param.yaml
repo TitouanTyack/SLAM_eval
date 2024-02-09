@@ -1,0 +1,12 @@
+# Path of clouds
+path cam left: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_pierre1_raw/cam0/data"
+# path cam left: "/home/deos/ce.debeunne/Documents/phd/developpement/SLAM_eval/dense_stereo_fisheye/cloud"
+path cam right: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_pierre1_raw/cam1/data"
+
+# threshold for left / right association (in s)
+dt_min: 0.0025
+
+# dense stereo parameters
+vfov: 100
+ndisp: 80
+wsize: 12
