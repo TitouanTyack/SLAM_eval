@@ -170,21 +170,30 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr denseStereo::pcFromDepthMap(const cv::Mat &d
     for (int r = 0; r < depth_map.rows; ++r) {
         for (int c = 0; c < depth_map.cols; ++c) {
 
-                double z = static_cast<double>(depth_map.at<float>(r, c));
-                if (z > 10 || z < 0)
-                    continue;
+            double z = static_cast<double>(depth_map.at<float>(r, c));
 
-                double x = (double)(c - c_x) / f_x;
-                double y = (double)(r - c_y) / f_y;
+            // For "foire à la saucisse"
+            // if (z > 8 || z < 0)
+            //     continue;
 
-                cv::Vec3d ptcv(x, y, 1);
-                double nptcv = cv::norm(ptcv, cv::NORM_L2);
-                pcl::PointXYZ pt;
-                pt.x = x * z / nptcv;
-                pt.y = y * z / nptcv;
-                pt.z = z / nptcv;
-                pointcloud->points.push_back(pt);
-            }
+            double x = (double)(c - c_x) / f_x;
+            double y = (double)(r - c_y) / f_y;
+
+            cv::Vec3d ptcv(x, y, 1);
+            double nptcv = cv::norm(ptcv, cv::NORM_L2);
+            pcl::PointXYZ pt;
+            pt.x = x * z / nptcv;
+            pt.y = y * z / nptcv;
+            pt.z = z / nptcv;
+
+            // For "foire à la saucisse"
+            // ptcv = ptcv * z / nptcv;
+            // cv::Vec3d n(0, std::cos(22 * M_PI / 180), std::sin(22 * M_PI / 180));
+            // double proj = std::abs(ptcv.dot(n));
+            // if (proj > 0.8)
+            //     continue;
+
+            pointcloud->points.push_back(pt);
         }
     }
 

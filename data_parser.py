@@ -75,6 +75,9 @@ def load_poses_from_csv_isae(file_name):
                                     [row[' T_wf(10)'], row[' T_wf(11)'],
                                      row[' T_wf(12)']],
                                     [row[' T_wf(20)'], row[' T_wf(21)'], row[' T_wf(22)']]])
+            
+            # For "foire à la saucisse"  
+            # P[0:3, 0:3] = np.identity(3)
 
             poses[counter] = P
             timestamp[counter] = int(row['timestamp (ns)'])
@@ -144,6 +147,10 @@ def load_poses_from_csv_KIMERA(file_name):
                                     row['qw']])
 
             P[0:3, 0:3] = r.as_matrix()
+            
+            # For "foire à la saucisse"  
+            # P[0:3, 0:3] = np.identity(3)
+            
             poses[counter] = P
             timestamp[counter] = int(row['#timestamp'])
             counter += 1

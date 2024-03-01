@@ -4,7 +4,7 @@
 
 denseStereo ds;
 int vfov_bar = 0, width_bar = 0, height_bar = 0;
-int vfov_max = 54, width_max = 300, height_max = 300;
+int vfov_max = 120, width_max = 300, height_max = 300;
 int ndisp_bar = 1, wsize_bar = 2;
 int ndisp_max = 6, wsize_max = 4;
 bool changed = false;
@@ -65,9 +65,8 @@ int main(int argc, char **argv) {
     ds                    = denseStereo(file_name);
     ds.InitRectifyMap();
 
-    cv::Mat left_img, right_img;
-    left_img  = cv::imread("data/cnes_left.png", cv::IMREAD_COLOR);
-    right_img = cv::imread("data/cnes_right.png", cv::IMREAD_COLOR);
+    cv::Mat left_img  = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/cam0/data/1677764133098803561.png", cv::IMREAD_ANYCOLOR);
+    cv::Mat right_img = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/cam1/data/1677764133098497684.png", cv::IMREAD_ANYCOLOR);
 
     char win_name[256];
     sprintf(win_name, "Raw Image: %d x %d", ds._cap_cols, ds._cap_rows);
