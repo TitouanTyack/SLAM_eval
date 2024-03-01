@@ -5,4 +5,5 @@ pc_comparison/fisheye3_viocloud
 pc_comparison/build
 dense_stereo_fisheye/build
 dense_stereo_fisheye/cloud
+dense_stereo_fisheye/cloud.pcd
 result/

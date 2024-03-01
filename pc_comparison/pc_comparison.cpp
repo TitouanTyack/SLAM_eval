@@ -31,7 +31,7 @@ void remove_aroundrobot(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud_in, pcl::Point
 
     cloud_out->clear();
     for (auto pt : cloud_in->points)
-        if (sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z) > 1.5)
+        if (sqrt(pt.x * pt.x + pt.y * pt.y + pt.z * pt.z) > 1)
             cloud_out->points.push_back(pt);
 }
 
@@ -182,14 +182,14 @@ int main() {
             return (-1);
         }
 
-        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).second, *cloud_out) == -1) //* load the file
+        if (pcl::io::loadPCDFile<pcl::PointXYZ>(vio_lidar_pairs.at(i).second, *cloud_out_raw) == -1) //* load the file
         {
             PCL_ERROR("Couldn't read file test_pcd.pcd \n");
             return (-1);
         }
 
         // Remove negative x for a lighter pc
-        // remove_negativex(cloud_out_raw, cloud_out);
+        remove_negativex(cloud_out_raw, cloud_out);
         remove_aroundrobot(cloud_in_raw, cloud_in);
 
         // Perform ICP
@@ -201,6 +201,9 @@ int main() {
 
         // Align VIO cloud
         pcl::transformPointCloud(*cloud_in_original, *cloud_in_transformed, icp.getFinalTransformation());
+
+        std::cout << icp.getFinalTransformation() << std::endl;
+        std::cout << icp.getFinalTransformation() * T_init << std::endl;
 
         // Update scores
         avg_score_accuracy += icp.getFitnessScore();
@@ -239,12 +242,12 @@ int main() {
 
     pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D viewer"));
     viewer->addPointCloud<pcl::PointXYZ>(cloud_in_transformed, "sample cloud");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5, "sample cloud");
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 1.0, "sample cloud");
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 1.0, 0, 0, "sample cloud");
     viewer->setBackgroundColor(255, 255, 255);
     viewer->addPointCloud<pcl::PointXYZ>(cloud_out, "LidarCloud");
     viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0, 1.0, 0, "LidarCloud");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "LidarCloud");
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 3, "LidarCloud");
     viewer->spin();
 
     return (0);
