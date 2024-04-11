@@ -2,8 +2,8 @@
 path vio: "/home/deos/ce.debeunne/Documents/phd/developpement/SLAM_eval/result/CNES_2024/tour_butte2_vio.csv"
 
 # Path of left / right images
-path cam left: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/cam0/data"
-path cam right: "/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/cam1/data"
+path cam left: "/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/AR_Alpine/cam0/data"
+path cam right: "/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/AR_Alpine/cam1/data"
 
 # threshold for left / right association (in s)
 dt_min: 0.0025

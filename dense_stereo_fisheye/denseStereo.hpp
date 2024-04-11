@@ -22,7 +22,15 @@ class denseStereo {
 
     void InitUndistortRectifyMap(cv::Mat K,
                                  cv::Mat D,
-                                 cv::Mat xi,
+                                 double xi,
+                                 cv::Mat R,
+                                 cv::Mat P,
+                                 cv::Size size,
+                                 cv::Mat &map1,
+                                 cv::Mat &map2);
+    void InitUndistortRectifyMapDS(cv::Mat K,
+                                 float alpha,
+                                 float xi,
                                  cv::Mat R,
                                  cv::Mat P,
                                  cv::Size size,
@@ -33,7 +41,9 @@ class denseStereo {
     pcl::PointCloud<pcl::PointXYZ>::Ptr pcFromDepthMap(const cv::Mat &depth_map); 
 
     std::string _configfilepath, _cam_model;
-    cv::Mat Translation, Kl, Kr, Dl, Dr, xil, xir, Rl, Rr, smap[2][2], Knew;
+    cv::Mat Translation, Kl, Kr, Dl, Dr, Rl, Rr, smap[2][2], Knew;
+    double xil, xir, alphal, alphar;
+
     int _vfov = 60; 
     int _width, _height;
 

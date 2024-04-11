@@ -38,7 +38,7 @@ void OnTrackHeight(int, void *) {
 
 void OnTrackNdisp(int, void *) {
     ds._ndisp = 16 + 16 * ndisp_bar;
-    changed  = true;
+    changed   = true;
 }
 
 ////////////////////////////////////////////////////////////////////////////////
@@ -50,23 +50,17 @@ void OnTrackWsize(int, void *) {
 
 ////////////////////////////////////////////////////////////////////////////////
 
-pcl::visualization::PCLVisualizer::Ptr cloud_visu(pcl::PointCloud<pcl::PointXYZ>::Ptr cloud) {
-    pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D viewer"));
-    viewer->addPointCloud<pcl::PointXYZ>(cloud, "sample cloud");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 5, "sample cloud");
-    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0, 1.0, 0, "sample cloud");
-    viewer->setBackgroundColor(255, 255, 255);
-    viewer->spin();
-    return viewer;
-}
-
 int main(int argc, char **argv) {
-    std::string file_name = argc == 2 ? argv[1] : "omni_parameters.yaml";
+    std::string file_name = argc == 2 ? argv[1] : "ds_parameters.yaml";
     ds                    = denseStereo(file_name);
     ds.InitRectifyMap();
 
-    cv::Mat left_img  = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/cam0/data/1677764133098803561.png", cv::IMREAD_ANYCOLOR);
-    cv::Mat right_img = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-01-24-CNES/raw_data/tour_butte2_raw/cam1/data/1677764133098497684.png", cv::IMREAD_ANYCOLOR);
+    cv::Mat left_img  = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/Radar2_light/cam0/"
+                                   "data/1710776332473594391.png",
+                                  cv::IMREAD_ANYCOLOR);
+    cv::Mat right_img = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/Radar2_light/cam1/"
+                                   "data/1710776332472756643.png",
+                                   cv::IMREAD_ANYCOLOR);
 
     char win_name[256];
     sprintf(win_name, "Raw Image: %d x %d", ds._cap_cols, ds._cap_rows);
@@ -95,8 +89,8 @@ int main(int argc, char **argv) {
         }
 
         cv::Mat small_left_img, small_right_img;
-        cv::resize(left_img, small_left_img, cv::Size(), 0.5, 0.5);
-        cv::resize(right_img, small_right_img, cv::Size(), 0.5, 0.5);
+        small_left_img  = left_img;
+        small_right_img = right_img;
 
         cv::remap(small_left_img, rect_imgl, ds.smap[0][0], ds.smap[0][1], 1, 0);
         cv::remap(small_right_img, rect_imgr, ds.smap[1][0], ds.smap[1][1], 1, 0);
@@ -105,19 +99,24 @@ int main(int argc, char **argv) {
         cv::Mat disp_img, depth_map;
         ds.DisparityImage(rect_imgl, rect_imgr, disp_img, depth_map);
 
+        // Depth image filtering 
+        cv::Mat depth_filtered;
+        cv::medianBlur(depth_map, depth_filtered, 5); // Adjust the kernel size as needed
+
         // Pointcloud computation
         if (changed) {
-            pcl::PointCloud<pcl::PointXYZ>::Ptr _pcl_cloud = ds.pcFromDepthMap(depth_map);
-            _pcl_cloud->width                              = _pcl_cloud->points.size();
-            _pcl_cloud->height                             = 1;
+            pcl::PointCloud<pcl::PointXYZ>::Ptr _pcl_cloud;
+            _pcl_cloud         = ds.pcFromDepthMap(depth_filtered);
+            _pcl_cloud->width  = _pcl_cloud->points.size();
+            _pcl_cloud->height = 1;
             pcl::io::savePCDFileASCII("cloud.pcd", *_pcl_cloud);
         }
 
         // Display depth map
         cv::Mat depth_img;
         double minDepth, maxDepth;
-        cv::minMaxLoc(depth_map, &minDepth, &maxDepth);
-        cv::convertScaleAbs(depth_map, depth_img, 255 / (maxDepth - minDepth));
+        cv::minMaxLoc(depth_filtered, &minDepth, &maxDepth);
+        cv::convertScaleAbs(depth_filtered, depth_img, 255 / (maxDepth - minDepth));
 
         if (changed) {
             auto t1 = std::chrono::high_resolution_clock::now();
@@ -127,40 +126,30 @@ int main(int argc, char **argv) {
         }
 
         imshow("Left Image", small_left_img);
-        imshow("Right Image", small_right_img);
         imshow("Rectified Left Image", rect_imgl);
-        imshow("Rectified Right Image", rect_imgr);
         imshow("Disparity Image", disp_img);
         imshow("Depth Map", depth_img);
 
-        /* // Apply Median Filtering to the depth map
-         cv::Mat depth_filtered;
-         cv::medianBlur(depth_map, depth_filtered, 5); // Adjust the kernel size as needed
-
-
-         // Apply bilateral filtering to the depth map
-         cv::Mat depth_filtered;
-         cv::bilateralFilter(depth_map, depth_filtered, 5, 25, 25);
-
-         // Display the filtered depth map
-         cv::Mat depth_filtered_img;
-         double minDepth, maxDepth;
-         cv::minMaxLoc(depth_filtered, &minDepth, &maxDepth);
-         cv::convertScaleAbs(depth_filtered, depth_filtered_img, 255 / (maxDepth - minDepth));
-         cv::imshow("Filtered Depth Map", depth_filtered_img);   */
-
-        // Enhance depth map visualization using colormap
-        /*cv::Mat depth_colormap;
-        double minDepth, maxDepth;
-        cv::minMaxLoc(depth_map, &minDepth, &maxDepth);
-        depth_map.convertTo(depth_map, CV_8U, 255.0 / (maxDepth - minDepth), -minDepth);
-        cv::applyColorMap(depth_map, depth_colormap, cv::COLORMAP_JET);
-        imshow("Depth Map", depth_colormap);*/
 
         char key = cv::waitKey(1);
         if (key == 'q' || key == 'Q' || key == 27)
             break;
     }
+
+    pcl::PointCloud<pcl::PointXYZ>::Ptr source_cloud(new pcl::PointCloud<pcl::PointXYZ>);
+
+    if (pcl::io::loadPCDFile<pcl::PointXYZ>("cloud.pcd", *source_cloud) == -1) {
+        PCL_ERROR("Couldn't read file\n");
+        return -1;
+    }
+
+    pcl::visualization::PCLVisualizer::Ptr viewer(new pcl::visualization::PCLVisualizer("3D viewer"));
+    viewer->addPointCloud<pcl::PointXYZ>(source_cloud, "sample cloud");
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_POINT_SIZE, 2, "sample cloud");
+    viewer->setPointCloudRenderingProperties(pcl::visualization::PCL_VISUALIZER_COLOR, 0, 1.0, 0, "sample cloud");
+    viewer->setBackgroundColor(255, 255, 255);
+    viewer->addCoordinateSystem();
+    viewer->spin();
 
     return 0;
 }

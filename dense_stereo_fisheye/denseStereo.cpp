@@ -17,17 +17,24 @@ denseStereo::denseStereo(std::string configfilepath) : _configfilepath(configfil
     fs["cam_model"] >> _cam_model;
     fs["cap_size"] >> cap_size;
     fs["Kl"] >> Kl;
-    fs["Dl"] >> Dl;
     fs["xil"] >> xil;
     Rl = cv::Mat::eye(3, 3, CV_64F);
-    if (_cam_model == "stereo") {
-        fs["Rl"] >> Rl;
-        fs["Kr"] >> Kr;
+
+    fs["Rl"] >> Rl;
+    fs["Kr"] >> Kr;
+
+    fs["xir"] >> xir;
+    fs["Rr"] >> Rr;
+    fs["T"] >> Translation;
+
+    if (_cam_model == "ds") {
+        fs["alphal"] >> alphal;
+        fs["alphar"] >> alphar;
+    } else if (_cam_model == "omni") {
         fs["Dr"] >> Dr;
-        fs["xir"] >> xir;
-        fs["Rr"] >> Rr;
-        fs["T"] >> Translation;
+        fs["Dl"] >> Dl;
     }
+
     fs.release();
 
     _cap_cols = cap_size.width;
@@ -38,7 +45,7 @@ denseStereo::denseStereo(std::string configfilepath) : _configfilepath(configfil
 
 void denseStereo::InitUndistortRectifyMap(cv::Mat K,
                                           cv::Mat D,
-                                          cv::Mat xi,
+                                          double xi,
                                           cv::Mat R,
                                           cv::Mat P,
                                           cv::Size size,
@@ -53,7 +60,7 @@ void denseStereo::InitUndistortRectifyMap(cv::Mat K,
     double cy = K.at<double>(1, 2);
     double s  = K.at<double>(0, 1);
 
-    double xid = xi.at<double>(0, 0);
+    double xid = xi;
 
     double k1 = D.at<double>(0, 0);
     double k2 = D.at<double>(0, 1);
@@ -90,6 +97,51 @@ void denseStereo::InitUndistortRectifyMap(cv::Mat K,
     }
 }
 
+void denseStereo::InitUndistortRectifyMapDS(cv::Mat K,
+                                            float alpha,
+                                            float xi,
+                                            cv::Mat R,
+                                            cv::Mat P,
+                                            cv::Size size,
+                                            cv::Mat &map1,
+                                            cv::Mat &map2) {
+    map1 = cv::Mat(size, CV_32F);
+    map2 = cv::Mat(size, CV_32F);
+
+    double fx = K.at<double>(0, 0);
+    double fy = K.at<double>(1, 1);
+    double cx = K.at<double>(0, 2);
+    double cy = K.at<double>(1, 2);
+    double s  = K.at<double>(0, 1);
+
+    cv::Mat KRi = (P * R).inv();
+
+    for (int r = 0; r < size.height; ++r) {
+        for (int c = 0; c < size.width; ++c) {
+            double xc = MatRowMul(KRi, c, r, 1., 0);
+            double yc = MatRowMul(KRi, c, r, 1., 1);
+            double zc = MatRowMul(KRi, c, r, 1., 2);
+
+            double rr = sqrt(xc * xc + yc * yc + zc * zc);
+            double xs = xc / rr;
+            double ys = yc / rr;
+            double zs = zc / rr;
+
+            double d1 = std::sqrt(xs * xs + ys * ys + zs * zs);
+            double d2 = std::sqrt(xs * xs + ys * ys + (xi * d1 + zs) * (xi * d1 + zs));
+
+            double xd = xs / (alpha * d2 + (1 - alpha) * (xi * d1 + zs));
+            double yd = ys / (alpha * d2 + (1 - alpha) * (xi * d1 + zs));
+
+            double u = fx * xd + s * yd + cx;
+            double v = fy * yd + cy;
+
+            map1.at<float>(r, c) = (float)u;
+            map2.at<float>(r, c) = (float)v;
+        }
+    }
+}
+
 void denseStereo::InitRectifyMap() {
 
     double vfov_rad = _vfov * CV_PI / 180.;
@@ -97,26 +149,30 @@ void denseStereo::InitRectifyMap() {
     Knew = (cv::Mat_<double>(3, 3) << focal, 0., _width / 2. - 0.5, 0., focal, _height / 2. - 0.5, 0., 0., 1.);
 
     cv::Size img_size(_width, _height);
-    InitUndistortRectifyMap(Kl, Dl, xil, Rl, Knew, img_size, smap[0][0], smap[0][1]);
+    if (_cam_model == "ds") {
+        InitUndistortRectifyMapDS(
+            Kl, alphal, xil, Rl, Knew, img_size, smap[0][0], smap[0][1]);
+        InitUndistortRectifyMapDS(
+            Kr, alphar, xir, Rr, Knew, img_size, smap[1][0], smap[1][1]);
+    } else if (_cam_model == "omni") {
+        InitUndistortRectifyMap(Kl, Dl, xil, Rl, Knew, img_size, smap[0][0], smap[0][1]);
+        InitUndistortRectifyMap(Kr, Dr, xir, Rr, Knew, img_size, smap[1][0], smap[1][1]);
+    }
 
     std::cout << "Width: " << _width << "\t"
               << "Height: " << _height << "\t"
               << "V.Fov: " << _vfov << "\n";
     std::cout << "K Matrix: \n" << Knew << std::endl;
-
-    if (_cam_model == "stereo") {
-        InitUndistortRectifyMap(Kr, Dr, xir, Rr, Knew, img_size, smap[1][0], smap[1][1]);
-        std::cout << "Ndisp: " << _ndisp << "\t"
-                  << "Wsize: " << _wsize << "\n";
-    }
-    std::cout << std::endl;
+    std::cout << "Ndisp: " << _ndisp << "\t"
+              << "Wsize: " << _wsize << "\n";
 }
 
 void denseStereo::DisparityImage(const cv::Mat &recl, const cv::Mat &recr, cv::Mat &disp, cv::Mat &depth_map) {
     cv::Mat disp16s;
     int N = _ndisp, W = _wsize, C = recl.channels();
     if (is_sgbm) {
-        cv::Ptr<cv::StereoSGBM> sgbm = cv::StereoSGBM::create(0, N, W, 8 * C * W * W, 32 * C * W * W);
+        cv::Ptr<cv::StereoSGBM> sgbm =
+            cv::StereoSGBM::create(0, N, W, 8 * C * W * W, 32 * C * W * W, 0, 0, 0, 0, 0, cv::StereoSGBM::MODE_SGBM);
         sgbm->compute(recl, recr, disp16s);
     } else {
         cv::Mat grayl, grayr;
@@ -173,8 +229,8 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr denseStereo::pcFromDepthMap(const cv::Mat &d
             double z = static_cast<double>(depth_map.at<float>(r, c));
 
             // For "foire à la saucisse"
-            // if (z > 8 || z < 0)
-            //     continue;
+            if (z > 10 || z < 2)
+                continue;
 
             double x = (double)(c - c_x) / f_x;
             double y = (double)(r - c_y) / f_y;
