@@ -44,7 +44,7 @@ class OivioEvalOdom(EvalOdom):
 
         # Create evaluation list
         if seqs is None:
-            available_seqs = [os.path.basename(x).rsplit( ".", 1 )[ 0 ] for x in glob(result_dir+'/*.txt')]
+            available_seqs = [os.path.basename(x).rsplit( ".", 1 )[ 0 ] for x in glob(result_dir+'/*.csv')]
             self.eval_seqs = [i for i in available_seqs if i in seq_list]
         else:
             self.eval_seqs = seqs
@@ -56,11 +56,11 @@ class OivioEvalOdom(EvalOdom):
             self.cur_seq = '{}'.format(i)
             gt_file_name = '{}.csv'.format(i)
             if (filename == None):
-                result_file_name = '{}.txt'.format(i)
+                result_file_name = '{}.csv'.format(i)
             else:
                 result_file_name = filename
 
-            poses_result, timestamp_result = load_poses_from_txt_ts(result_dir + "/" + result_file_name, length)
+            poses_result, timestamp_result = load_poses_from_csv_isae(result_dir + "/" + result_file_name)
             poses_gt, timestamp_gt = load_poses_from_csv_OIVIO(self.gt_dir + "/" + gt_file_name)
             self.result_file_name = result_dir + result_file_name
             
@@ -85,7 +85,7 @@ class OivioEvalOdom(EvalOdom):
                 poses_gt_sync[counter] = poses_gt[counter_gt]
 
                 # We ignore rotation on EUROC
-                poses_results_sync[counter][0:3, 0:3] = np.eye(3)
+                # poses_results_sync[counter][0:3, 0:3] = np.eye(3)
                 
                 counter += 1
             poses_result = poses_results_sync
@@ -122,6 +122,17 @@ class OivioEvalOdom(EvalOdom):
                     poses_result[cnt][:3, 3] *= scale
                     if alignment=="7dof" or alignment=="6dof":
                         poses_result[cnt] = align_transformation @ poses_result[cnt]
+            
+            # df_result = pd.DataFrame({
+            #     "pose" : poses_result
+            # })
+            # df_gt = pd.DataFrame({
+            #     "pose" : poses_gt
+            # })
+            
+            # # save df to pickle
+            # df_result.to_pickle("results.pkl")
+            # df_gt.to_pickle("gt.pkl")
 
             # Compute ATE
             print(i)

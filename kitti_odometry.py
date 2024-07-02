@@ -327,8 +327,7 @@ class EvalOdom():
             
             trans_errors.append(self.translation_error(rel_err))
             rot_errors.append(self.rotation_error(rel_err))
-        # rpe_trans = np.sqrt(np.mean(np.asarray(trans_errors) ** 2))
-        # rpe_rot = np.sqrt(np.mean(np.asarray(rot_errors) ** 2))
+
         rpe_trans = np.mean(np.asarray(trans_errors))
         rpe_rot = np.mean(np.asarray(rot_errors))
         return rpe_trans, rpe_rot
