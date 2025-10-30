@@ -8,6 +8,85 @@ from glob import glob
 import pickle
 
 
+def load_poses_from_txt_ov(file_name, length=-1):
+    """Load poses from txt (KITTI format + timestamp)
+    Each line in the file should follow one of the following structures
+        (1) timestamp
+        (2) pose(3x4 matrix in terms of 12 numbers)
+
+    Args:
+        file_name (str): txt file path
+    Returns:
+        poses (dict): {idx: 4x4 array}
+        timestamp (dict)
+    """
+    f = open(file_name, 'r')
+    s = f.readlines()
+    f.close()
+    poses = {}
+    timestamps = {}
+
+    for cnt, line in enumerate(s):
+        
+
+        # Stop the loading if there is a length parameter
+        if (cnt == 0):
+            continue
+
+        P = np.eye(4)
+        line_split = [i for i in line.split(" ") if i != '']
+        line_split = [float(i) for i in line_split[0:9]]
+
+        t = np.array([line_split[5], line_split[6], line_split[7]])
+        q = np.array([line_split[1], line_split[2], line_split[3], line_split[4]])
+        r = Rotation.from_quat(q)
+        P[0:3, 0:3] = r.as_matrix()
+        P[0:3, 3] = t
+
+        timestamps[cnt-1] = line_split[0] * 1e9
+        poses[cnt-1] = P
+
+    return poses, timestamps
+
+def load_poses_from_txt_ORBSLAM(file_name, length=-1):
+    """Load poses from txt (KITTI format + timestamp)
+    Each line in the file should follow one of the following structures
+        (1) timestamp
+        (2) pose(3x4 matrix in terms of 12 numbers)
+
+    Args:
+        file_name (str): txt file path
+    Returns:
+        poses (dict): {idx: 4x4 array}
+        timestamp (dict)
+    """
+    f = open(file_name, 'r')
+    s = f.readlines()
+    f.close()
+    poses = {}
+    timestamps = {}
+
+    for cnt, line in enumerate(s):
+
+        # Stop the loading if there is a length parameter
+        if (length != -1):
+            if (cnt > length):
+                break
+
+        P = np.eye(4)
+        line_split = [float(i) for i in line.split(" ") if i != ""]
+        withIdx = len(line_split) == 14
+        t = np.array([line_split[1], line_split[2], line_split[3]])
+        q = np.array([line_split[4], line_split[5], line_split[6], line_split[7]])
+        r = Rotation.from_quat(q)
+        P[0:3, 0:3] = r.as_matrix()
+        P[0:3, 3] = t
+
+        timestamps[cnt] = line_split[0]
+        poses[cnt] = P
+
+    return poses, timestamps
+
 def load_poses_from_txt_ts(file_name, length=-1):
     """Load poses from txt (KITTI format + timestamp)
     Each line in the file should follow one of the following structures
@@ -77,7 +156,7 @@ def load_poses_from_csv_isae(file_name):
                                     [row[' T_wf(20)'], row[' T_wf(21)'], row[' T_wf(22)']]])
             
             # For "foire à la saucisse"  
-            # P[0:3, 0:3] = np.identity(3)
+            #P[0:3, 0:3] = np.identity(3)
 
             poses[counter] = P
             timestamp[counter] = int(row['timestamp (ns)'])

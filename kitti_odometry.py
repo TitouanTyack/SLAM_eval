@@ -212,6 +212,26 @@ class EvalOdom():
             dist.append(dist[i]+np.sqrt(dx**2+dy**2+dz**2))
         return dist
 
+    def trajectory_length(self, poses):
+        """Compute the length of the trajectory
+        Args:
+            poses (dict): {idx: 4x4 array}
+        Returns:
+            length (float): length of the trajectory
+        """
+        length = 0
+        sort_frame_idx = sorted(poses.keys())
+        for i in range(len(sort_frame_idx)-1):
+            cur_frame_idx = sort_frame_idx[i]
+            next_frame_idx = sort_frame_idx[i+1]
+            P1 = poses[cur_frame_idx]
+            P2 = poses[next_frame_idx]
+            dx = P1[0, 3] - P2[0, 3]
+            dy = P1[1, 3] - P2[1, 3]
+            dz = P1[2, 3] - P2[2, 3]
+            length += np.sqrt(dx**2+dy**2+dz**2)
+        return length
+
     def rotation_error(self, pose_error):
         """Compute rotation error
         Args:

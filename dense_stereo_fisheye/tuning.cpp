@@ -51,15 +51,15 @@ void OnTrackWsize(int, void *) {
 ////////////////////////////////////////////////////////////////////////////////
 
 int main(int argc, char **argv) {
-    std::string file_name = argc == 2 ? argv[1] : "ds_parameters.yaml";
+    std::string file_name = argc == 2 ? argv[1] : "omni_parameters.yaml";
     ds                    = denseStereo(file_name);
     ds.InitRectifyMap();
 
-    cv::Mat left_img  = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/Radar2_light/cam0/"
-                                   "data/1710776332473594391.png",
+    cv::Mat left_img  = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/Alpine_light/cam0/"
+                                   "data/1710773435972884482.png",
                                   cv::IMREAD_ANYCOLOR);
-    cv::Mat right_img = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/Radar2_light/cam1/"
-                                   "data/1710776332472756643.png",
+    cv::Mat right_img = cv::imread("/media/ce.debeunne/HDD/datasets/ISAE/2024-03-18-Cagnac/raw_data/Alpine_light/cam1/"
+                                   "data/1710773435973461836.png",
                                    cv::IMREAD_ANYCOLOR);
 
     char win_name[256];

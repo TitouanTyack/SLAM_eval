@@ -189,7 +189,8 @@ int main() {
         }
 
         // Remove negative x for a lighter pc
-        remove_negativex(cloud_out_raw, cloud_out);
+        // remove_negativex(cloud_out_raw, cloud_out);
+        cloud_out = cloud_out_raw;
         remove_aroundrobot(cloud_in_raw, cloud_in);
 
         // Perform ICP

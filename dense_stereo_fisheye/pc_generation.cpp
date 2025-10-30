@@ -108,6 +108,12 @@ int main() {
     ds.InitRectifyMap();
 
     double dt_total = 0;
+    
+    std::ofstream fw_prof_mesh("timing_stereo.csv",
+                               std::ofstream::out | std::ofstream::trunc);
+    fw_prof_mesh << "stereo_dt\n";
+    fw_prof_mesh.close();
+
 
     for (auto left_right : left_right_pairs) {
 
@@ -116,14 +122,16 @@ int main() {
         //     continue;
 
         auto t0 = std::chrono::high_resolution_clock::now();
+        
+        std::cout << path_camleft + "/" + left_right.first + ".png" << std::endl;
 
-        cv::Mat img_left  = cv::imread(path_camleft + "/" + left_right.first + ".png", cv::IMREAD_COLOR);
-        cv::Mat img_right = cv::imread(path_camright + "/" + left_right.second + ".png", cv::IMREAD_COLOR);
+        cv::Mat img_left  = cv::imread(path_camleft + "/" + left_right.first + ".png", cv::IMREAD_ANYCOLOR);
+        cv::Mat img_right = cv::imread(path_camright + "/" + left_right.second + ".png", cv::IMREAD_ANYCOLOR);
 
         // Downsample image
         cv::Mat small_left_img, small_right_img;
-        cv::resize(img_left, small_left_img, cv::Size(), 0.5, 0.5);
-        cv::resize(img_right, small_right_img, cv::Size(), 0.5, 0.5);
+        cv::resize(img_left, small_left_img, cv::Size(), 1, 1);
+        cv::resize(img_right, small_right_img, cv::Size(), 1, 1);
 
         cv::Mat rect_imgl, rect_imgr;
         cv::remap(small_left_img, rect_imgl, ds.smap[0][0], ds.smap[0][1], 1, 0);
@@ -132,20 +140,28 @@ int main() {
         // Disparity computation
         cv::Mat disp_img, depth_map;
         ds.DisparityImage(rect_imgl, rect_imgr, disp_img, depth_map);
+        
+        // Depth image filtering 
+        cv::Mat depth_filtered;
+        cv::medianBlur(depth_map, depth_filtered, 5);
 
         // Pointcloud computation
-        pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cloud = ds.pcFromDepthMap(depth_map);
+        pcl::PointCloud<pcl::PointXYZ>::Ptr pcl_cloud = ds.pcFromDepthMap(depth_filtered);
+        
+        // Writing pointcloud
+        pcl_cloud->width  = pcl_cloud->points.size();
+        pcl_cloud->height = 1;
+        pcl::io::savePCDFileASCII("cloud/" + left_right.first + ".pcd", *pcl_cloud);
 
         // Timing
         auto t1   = std::chrono::high_resolution_clock::now();
         double dt = (double)std::chrono::duration_cast<std::chrono::milliseconds>(t1 - t0).count();
         dt_total += dt;
+        std::ofstream fw_mesh("timing_stereo.csv",
+                                  std::ofstream::out | std::ofstream::app);
+        fw_mesh << dt << "\n";
+        fw_mesh.close();
         std::cout << "Timing : " << dt << " ms" << std::endl;
-
-        // Writing pointcloud
-        pcl_cloud->width  = pcl_cloud->points.size();
-        pcl_cloud->height = 1;
-        pcl::io::savePCDFileASCII("cloud/" + left_right.first + ".pcd", *pcl_cloud);
     }
 
     std::cout << "Average timing : " << dt_total / (double)left_right_pairs.size() << " ms " << std::endl;

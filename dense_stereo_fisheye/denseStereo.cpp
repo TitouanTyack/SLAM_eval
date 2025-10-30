@@ -172,12 +172,9 @@ void denseStereo::DisparityImage(const cv::Mat &recl, const cv::Mat &recr, cv::M
     int N = _ndisp, W = _wsize, C = recl.channels();
     if (is_sgbm) {
         cv::Ptr<cv::StereoSGBM> sgbm =
-            cv::StereoSGBM::create(0, N, W, 8 * C * W * W, 32 * C * W * W, 0, 0, 0, 0, 0, cv::StereoSGBM::MODE_SGBM);
+            cv::StereoSGBM::create(2, N, W, 8 * C * W * W, 32 * C * W * W, 0, 0, 0, 0, 0, cv::StereoSGBM::MODE_SGBM);
         sgbm->compute(recl, recr, disp16s);
     } else {
-        cv::Mat grayl, grayr;
-        cv::cvtColor(recl, grayl, cv::COLOR_BGR2GRAY);
-        cv::cvtColor(recr, grayr, cv::COLOR_BGR2GRAY);
 
         cv::Ptr<cv::StereoBM> sbm = cv::StereoBM::create(N, W);
         sbm->setPreFilterCap(31);
@@ -187,7 +184,8 @@ void denseStereo::DisparityImage(const cv::Mat &recl, const cv::Mat &recr, cv::M
         sbm->setSpeckleWindowSize(100);
         sbm->setSpeckleRange(32);
         sbm->setDisp12MaxDiff(1);
-        sbm->compute(grayl, grayr, disp16s);
+        sbm->compute(recl, recr, disp16s);
+        
     }
 
     double minVal, maxVal;
@@ -196,10 +194,10 @@ void denseStereo::DisparityImage(const cv::Mat &recl, const cv::Mat &recr, cv::M
 
     // How to get the depth map
     double fx = Knew.at<double>(0, 0);
-    double bl = -Translation.at<double>(0, 0);
+    double bl = cv::norm(Translation);
 
     cv::Mat dispf;
-    disp16s.convertTo(dispf, CV_32F, 1.f / 16.f);
+    disp16s.convertTo(dispf, CV_32F, 1.0/16.0f);
     depth_map = cv::Mat(dispf.rows, dispf.cols, CV_32F);
 
     for (int r = 0; r < dispf.rows; ++r) {
@@ -224,15 +222,19 @@ pcl::PointCloud<pcl::PointXYZ>::Ptr denseStereo::pcFromDepthMap(const cv::Mat &d
     double c_y = Knew.at<double>(1, 2);
 
     for (int r = 0; r < depth_map.rows; ++r) {
+    	if (r%4 != 0)
+    	    continue;
         for (int c = 0; c < depth_map.cols; ++c) {
+            if (c%4 != 0)
+    	        continue;
             
             // The depth is the z value of the 3D point in the camera frame
             double w = static_cast<double>(depth_map.at<float>(r, c));
 
             // For "foire à la saucisse"
-            if (w > 10 || w < 2)
+            if (w > 10 || w < 0.5)
                 continue;
-
+                
             // The 3D point is X = w  K^{-1} [u, v, 1]^T 
             double x = (double)(c - c_x) / f_x;
             double y = (double)(r - c_y) / f_y;
